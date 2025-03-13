@@ -10,16 +10,14 @@ import torch.nn.functional as F
 import torch
 import torch.distributed as dist
 
-#修改，注意力
 def adjust_position_embeddings(pos_embed, new_length):
-    # 给定原始位置编码pos_embed和期望的新长度new_length，使用插值调整pos_embed的长度
      pos_embed = pos_embed.unsqueeze(1)
      new_pos_embed = F.interpolate(pos_embed, size=(new_length, pos_embed.size(-1)), mode='bilinear', align_corners=False)
      new_pos_embed = new_pos_embed.squeeze(1)
      return new_pos_embed
 def attention_weights(logits,pos_embed):
-    attention_logits = torch.mean(logits, dim=1)  # 汇总logits，可以根据具体需求修改汇总的方式
-    attention_weights = F.softmax(attention_logits, dim=0)  # 使用softmax函数将logits转换为注意力权重
+    attention_logits = torch.mean(logits, dim=1)  
+    attention_weights = F.softmax(attention_logits, dim=0)  
     
     pos_embed = pos_embed.squeeze(0)
     attention_scores = torch.matmul(pos_embed, pos_embed.transpose(0, 1))
@@ -33,8 +31,8 @@ def compute_attention_weights_with_position(logits,pos_embed):
     attention_weights = torch.mean(adjusted_pos_embed, dim=2)
     pos_attention_weights = torch.mean(attention_weights, dim=1)
 
-    attention_logits = torch.mean(logits, dim=1)  # 汇总logits，可以根据具体需求修改汇总的方式
-    global_attention_weights = F.softmax(attention_logits, dim=0)  # 使用softmax函数将logits转换为注意力权重
+    attention_logits = torch.mean(logits, dim=1)  
+    global_attention_weights = F.softmax(attention_logits, dim=0)  
     
     combined_attention_weights = (global_attention_weights + pos_attention_weights) / 2
     
@@ -61,7 +59,7 @@ class ClassPrototypes(object):
         for i in range(len(labels)):
             label = labels[i]
             output = outputs[i]
-            attention_weight = attention_weights[i]  # 获取注意力权重
+            attention_weight = attention_weights[i] 
             self.prototype[label] = (self.prototype[label] * self.counts[label] + output * attention_weight) / (self.counts[label] + attention_weight)
             self.counts[label] += attention_weight
 
@@ -93,7 +91,7 @@ def prototype_update_with_losses(prototype: ClassPrototypes, model: torch.nn.Mod
 
             output,_,_,pos_embed= model(input, task_id=task_id, cls_features=cls_features)
             logits = output['logits']
-            attention_weights = compute_attention_weights_with_position(logits,pos_embed)  # 添加计算注意力权重函数
+            attention_weights = compute_attention_weights_with_position(logits,pos_embed)  
         prototype.atten_pro(target,logits,attention_weights)
 
     return prototype
@@ -119,7 +117,6 @@ def prototype_evaluate_with_losses(prototype: ClassPrototypes, model: torch.nn.M
             total += target.size(0)
             correct += (predictions == target).sum().item()
     acc = 100.0 * correct / total
-    # print(f'Task {task_id+1} Accuracy: {acc:.2f}%')
     print('Task',task_id+1,'Test',test_id,' ACC:',acc)
     return acc
 
